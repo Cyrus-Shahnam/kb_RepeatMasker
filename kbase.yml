@@ -16,7 +16,7 @@ module-version:
     0.1.0
 
 owners:
-    [ac.shahnam]
+    [ac.shahnam, cshahnam]
 
 service-config:
     dynamic-service: false
