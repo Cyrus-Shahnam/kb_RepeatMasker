@@ -1,2 +1,5 @@
 test_local
 sdk.cfg
+.git
+*.zip
+work

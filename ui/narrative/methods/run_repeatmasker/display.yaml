@@ -1,0 +1,132 @@
+#
+# define display information
+#
+name: Mask Repeats with RepeatMasker - v4.2.4
+
+tooltip: |
+    Mask interspersed repeats and low-complexity DNA in assemblies with RepeatMasker and the Dfam 4.0 library, or your own repeat library.
+
+screenshots: []
+
+#
+# define a set of similar apps that might be useful to the user
+#
+suggestions:
+    apps:
+        related:
+            []
+        next:
+            []
+    methods:
+        related:
+            []
+        next:
+            []
+
+#
+# Configure the display and description of parameters
+#
+parameters :
+    assembly_refs :
+        ui-name : |
+            Assemblies
+        short-hint : |
+            One or more assemblies to mask. Each is masked separately and gets its own masked assembly.
+        long-hint  : |
+            One or more Assembly objects. RepeatMasker is run once per assembly; one report covers them all.
+
+    species :
+        ui-name : |
+            Species or taxon (Dfam)
+        short-hint : |
+            NCBI Taxonomy name whose Dfam repeat families are searched, e.g. Drosophila melanogaster, Arabidopsis thaliana, Saccharomycetes, Fungi. Required unless a custom library is given.
+        long-hint  : |
+            RepeatMasker searches the Dfam families assigned to this taxon and its ancestors. Use the closest taxon with curated families. Latin names are safest; common names are often missing from NCBI Taxonomy. Leave blank to search only a custom library. If both are given, the Dfam families for the taxon and the custom library are searched together.
+
+    custom_library_ref :
+        ui-name : |
+            Custom repeat library (optional)
+        short-hint : |
+            An Assembly of repeat consensus sequences, e.g. a RepeatModeler library. IDs like name#LTR/Gypsy give classified output.
+        long-hint  : |
+            Import the library FASTA as an Assembly (Import FASTA as Assembly). RepeatMasker reports each repeat's class from the part of the ID after '#'; sequences without it are reported as Unknown.
+
+    mask_type :
+        ui-name : |
+            Masking style
+        short-hint : |
+            Soft (lowercase) keeps the sequence and is what gene predictors such as BRAKER expect; hard masking replaces repeats with N or X.
+
+    output_suffix :
+        ui-name : |
+            Masked assembly name suffix
+        short-hint : |
+            Appended to each input assembly's name to name its masked copy, e.g. MyGenome -> MyGenome_masked.
+
+    save_masked_assembly :
+        ui-name : |
+            Save masked assemblies
+        short-hint : |
+            Uncheck to produce only the report and annotation files.
+
+    mask_scope :
+        ui-name : |
+            What to mask
+        short-hint : |
+            Default masks both. "Interspersed only" (-nolow) skips the simple-repeat search entirely, which can mislabel short simple stretches as TE fragments.
+
+    speed :
+        ui-name : |
+            Search speed / sensitivity
+        short-hint : |
+            Trade sensitivity for speed. Default suits most genomes.
+
+    uncurated :
+        ui-name : |
+            Include uncurated Dfam families
+        short-hint : |
+            Also search uncurated (DR, de novo) Dfam families. Only works if the matching uncurated partitions are installed; the report warns if they are not.
+
+    norna :
+        ui-name : |
+            Do not mask small RNA genes
+        short-hint : |
+            Leave tRNA/snRNA (pseudo)genes unmasked (-norna). Mostly relevant for mammals.
+
+    div :
+        ui-name : |
+            Maximum divergence (%)
+        short-hint : |
+            Only mask repeats less than this percent diverged from their consensus (-div), e.g. 20 to mask only young repeats. Blank = all.
+
+    cutoff :
+        ui-name : |
+            Custom library score cutoff
+        short-hint : |
+            Minimum Smith-Waterman score for custom-library hits (-cutoff). Default 225; below 200 gives false matches, 250 is conservative. Ignored for Dfam-only searches.
+
+    alignments :
+        ui-name : |
+            Write alignments
+        short-hint : |
+            Also write the .align file (-a), needed for repeat landscape / divergence analyses. Can be large.
+
+description : |
+    <p>This app runs <a href="https://www.repeatmasker.org/">RepeatMasker</a> 4.2.4 (RMBlast engine, Tandem Repeats Finder) on one or more assemblies. It identifies interspersed repeats (transposable elements), simple repeats and low-complexity DNA, and returns a masked copy of each assembly together with the repeat annotation.</p>
+    <p><b>Repeat libraries.</b> By default it searches the curated families of <a href="https://www.dfam.org/">Dfam 4.0</a> assigned to the species or taxon you name and its ancestors. Dfam is installed with the app as reference data. You can also supply your own library (for example from RepeatModeler), alone or together with Dfam.</p>
+    <p><b>Outputs.</b> A masked Assembly per input (soft-masked in lowercase by default, or hard-masked with N or X), and a report with repeat content by class, the most abundant families, warnings, and the exact commands run. Each input also gets a downloadable zip containing the RepeatMasker .out table, a GFF, the .tbl summary, the masked FASTA and the logs.</p>
+    <p><b>Tips.</b> Soft-masked assemblies are the usual input for gene prediction. For species with few curated Dfam families, build a library with RepeatModeler and pass it as a custom library. Contig names longer than 50 characters are handled automatically.</p>
+
+publications :
+    -
+        display-text: |
+            Smit AFA, Hubley R, Green P. RepeatMasker Open-4.0. 2013-2015.
+        link: http://www.repeatmasker.org
+    -
+        display-text: |
+            Storer J, Hubley R, Rosen J, Wheeler TJ, Smit AF. The Dfam community resource of transposable element families, sequence models, and genome annotations. Mobile DNA. 2021;12:2.
+        link: https://doi.org/10.1186/s13100-020-00230-y
+    -
+        display-text: |
+            Benson G. Tandem repeats finder: a program to analyze DNA sequences. Nucleic Acids Res. 1999;27(2):573-580.
+        link: https://doi.org/10.1093/nar/27.2.573

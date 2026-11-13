@@ -1,0 +1,17 @@
+name: repeatmasker
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  # RepeatMasker 4.2.4 is the first release for Dfam 4.0 / FamDB format 3,
+  # and it needs famdb 3.0.0 (FamDB is a separate package since 4.2.4).
+  - repeatmasker=4.2.4
+  - famdb=3.0.0
+  - rmblast>=2.17.0
+  - hmmer
+  - trf
+  - h5py
+  - perl
+  - python>=3.9
+  - curl
+  - wget

@@ -17,7 +17,7 @@ from jsonrpcbase import JSONRPCService, InvalidParamsError, KeywordError, \
 from jsonrpcbase import ServerError as JSONServerError
 
 from biokbase import log
-from kbase.auth import KBaseAuthClient as _KBaseAuthClient
+from kb_repeatmasker.authclient import KBaseAuth as _KBaseAuth
 
 try:
     from ConfigParser import ConfigParser
@@ -45,14 +45,14 @@ def get_config():
     retconfig = {}
     config = ConfigParser()
     config.read(get_config_file())
-    for nameval in config.items(get_service_name() or 'kb_RepeatMasker'):
+    for nameval in config.items(get_service_name() or 'kb_repeatmasker'):
         retconfig[nameval[0]] = nameval[1]
     return retconfig
 
 config = get_config()
 
-from kb_RepeatMasker.kb_RepeatMaskerImpl import kb_RepeatMasker  # noqa @IgnorePep8
-impl_kb_RepeatMasker = kb_RepeatMasker(config)
+from kb_repeatmasker.kb_repeatmaskerImpl import kb_repeatmasker  # noqa @IgnorePep8
+impl_kb_repeatmasker = kb_repeatmasker(config)
 
 
 class JSONObjectEncoder(json.JSONEncoder):
@@ -116,13 +116,7 @@ class JSONRPCServiceCustom(JSONRPCService):
             newerr = JSONServerError()
             newerr.trace = traceback.format_exc()
             if len(e.args) == 1:
-                # repr adds single quotes around string arguments which is not what we want.
-                if isinstance(e.args[0], str):
-                    # this is pretty much the only case that regularly happens
-                    # not sure if the other two cases happen anywhere in KBase
-                    newerr.data = str(e.args[0])
-                else:
-                    newerr.data = repr(e.args[0])
+                newerr.data = repr(e.args[0])
             else:
                 newerr.data = repr(e.args)
             raise newerr
@@ -333,7 +327,7 @@ class Application(object):
                                    context['method'], context['call_id'])
 
     def __init__(self):
-        submod = get_service_name() or 'kb_RepeatMasker'
+        submod = get_service_name() or 'kb_repeatmasker'
         self.userlog = log.log(
             submod, ip_address=True, authuser=True, module=True, method=True,
             call_id=True, changecallback=self.logcallback,
@@ -344,17 +338,15 @@ class Application(object):
         self.serverlog.set_log_level(6)
         self.rpc_service = JSONRPCServiceCustom()
         self.method_authentication = dict()
-        self.rpc_service.add(impl_kb_RepeatMasker.run_kb_RepeatMasker,
-                             name='kb_RepeatMasker.run_kb_RepeatMasker',
+        self.rpc_service.add(impl_kb_repeatmasker.run_repeatmasker,
+                             name='kb_repeatmasker.run_repeatmasker',
                              types=[dict])
-        self.method_authentication['kb_RepeatMasker.run_kb_RepeatMasker'] = 'required'  # noqa
-        self.rpc_service.add(impl_kb_RepeatMasker.status,
-                             name='kb_RepeatMasker.status',
+        self.method_authentication['kb_repeatmasker.run_repeatmasker'] = 'required'  # noqa
+        self.rpc_service.add(impl_kb_repeatmasker.status,
+                             name='kb_repeatmasker.status',
                              types=[dict])
-        # Mimic the behavior of the old auth client for now
-        authurl = config.get(AUTH) if config else "https://kbase.us/services/auth"
-        authurl = authurl.split("api/legacy")[0]  # handle both regular and legacy auth urls
-        self.auth_client = _KBaseAuthClient.create(authurl)
+        authurl = config.get(AUTH) if config else None
+        self.auth_client = _KBaseAuth(authurl)
 
     def __call__(self, environ, start_response):
         # Context object, equivalent to the perl impl CallContext
@@ -406,14 +398,14 @@ class Application(object):
                             err = JSONServerError()
                             err.data = (
                                 'Authentication required for ' +
-                                'kb_RepeatMasker ' +
+                                'kb_repeatmasker ' +
                                 'but no authentication header was passed')
                             raise err
                         elif token is None and auth_req == 'optional':
                             pass
                         else:
                             try:
-                                user = self.auth_client.get_token(token).user
+                                user = self.auth_client.get_user(token)
                                 ctx['user_id'] = user
                                 ctx['authenticated'] = 1
                                 ctx['token'] = token
@@ -560,26 +552,27 @@ def stop_server():
 
 def process_async_cli(input_file_path, output_file_path, token):
     exit_code = 0
+    with open(input_file_path) as data_file:
+        req = json.load(data_file)
+    if 'version' not in req:
+        req['version'] = '1.1'
+    if 'id' not in req:
+        req['id'] = str(_random.random())[2:]
+    ctx = MethodContext(application.userlog)
+    if token:
+        user = application.auth_client.get_user(token)
+        ctx['user_id'] = user
+        ctx['authenticated'] = 1
+        ctx['token'] = token
+    if 'context' in req:
+        ctx['rpc_context'] = req['context']
+    ctx['CLI'] = 1
+    ctx['module'], ctx['method'] = req['method'].split('.')
+    prov_action = {'service': ctx['module'], 'method': ctx['method'],
+                   'method_params': req['params']}
+    ctx['provenance'] = [prov_action]
+    resp = None
     try:
-        with open(input_file_path) as data_file:
-            req = json.load(data_file)
-        if 'version' not in req:
-            req['version'] = '1.1'
-        if 'id' not in req:
-            req['id'] = str(_random.random())[2:]
-        ctx = MethodContext(application.userlog)
-        if token:
-            user = application.auth_client.get_token(token).user
-            ctx['user_id'] = user
-            ctx['authenticated'] = 1
-            ctx['token'] = token
-        if 'context' in req:
-            ctx['rpc_context'] = req['context']
-        ctx['CLI'] = 1
-        ctx['module'], ctx['method'] = req['method'].split('.')
-        prov_action = {'service': ctx['module'], 'method': ctx['method'],
-                       'method_params': req['params']}
-        ctx['provenance'] = [prov_action]
         resp = application.rpc_service.call_py(ctx, req)
     except JSONRPCError as jre:
         trace = jre.trace if hasattr(jre, 'trace') else None
@@ -590,13 +583,13 @@ def process_async_cli(input_file_path, output_file_path, token):
                           'message': jre.data,
                           'error': trace}
                 }
-    except Exception as e:
+    except Exception:
         trace = traceback.format_exc()
         resp = {'id': req['id'],
                 'version': req['version'],
                 'error': {'code': 0,
-                          'name': 'Unexpected Error',
-                          'message': f"An unexpected error occurred: {e}",
+                          'name': 'Unexpected Server Error',
+                          'message': 'An unexpected server error occurred',
                           'error': trace}
                 }
     if 'error' in resp:

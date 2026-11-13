@@ -1,8 +1,5 @@
 language: python
 
-# TODO TRAVIS this needs to be retired in favor of GHA. Should probably just be removed for now
-#             Not clear that the SDK should even be providing CI integrations
-
 sudo: required
 
 services:
@@ -25,6 +22,7 @@ install:
   - make bin
   - make sdkbase
   - export PATH=$(pwd)/bin:$PATH
+  - source src/sh/sdk-completion.sh
   - popd
 
 script:

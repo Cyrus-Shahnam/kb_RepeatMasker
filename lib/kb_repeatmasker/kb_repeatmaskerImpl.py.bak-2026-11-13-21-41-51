@@ -3,17 +3,22 @@
 import logging
 import os
 
-from installed_clients.KBaseReportClient import KBaseReport
+from kb_repeatmasker.repeatmasker_utils import RepeatMaskerRunner
 #END_HEADER
 
 
-class kb_RepeatMasker:
+class kb_repeatmasker:
     '''
     Module Name:
-    kb_RepeatMasker
+    kb_repeatmasker
 
     Module Description:
-    A KBase module: kb_RepeatMasker
+    A KBase module: kb_repeatmasker
+
+Wraps RepeatMasker 4.2.4 (Smit, Hubley & Green) with the Dfam 4.0 curated
+consensus library (FamDB format 3) served as KBase reference data.
+Input: one or more Assemblies. Output: masked Assemblies plus a report with
+repeat annotation (.out/.gff/.tbl) per input.
     '''
 
     ######## WARNING FOR GEVENT USERS ####### noqa
@@ -22,7 +27,7 @@ class kb_RepeatMasker:
     # state. A method could easily clobber the state set by another while
     # the latter method is running.
     ######################################### noqa
-    VERSION = "0.0.1"
+    VERSION = "0.1.0"
     GIT_URL = ""
     GIT_COMMIT_HASH = ""
 
@@ -33,37 +38,28 @@ class kb_RepeatMasker:
     # be found
     def __init__(self, config):
         #BEGIN_CONSTRUCTOR
+        self.config = config
         self.callback_url = os.environ['SDK_CALLBACK_URL']
-        self.shared_folder = config['scratch']
         logging.basicConfig(format='%(created)s %(levelname)s: %(message)s',
                             level=logging.INFO)
         #END_CONSTRUCTOR
         pass
 
 
-    def run_kb_RepeatMasker(self, ctx, params):
+    def run_repeatmasker(self, ctx, params):
         """
-        This example function accepts any number of parameters and returns results in a KBaseReport
-        :param params: instance of mapping from String to unspecified object
-        :returns: instance of type "ReportResults" -> structure: parameter
-           "report_name" of String, parameter "report_ref" of String
+        :param params: instance of type "RunRepeatMaskerParams"
+        :returns: instance of type "RunRepeatMaskerOutput"
         """
         # ctx is the context object
         # return variables are: output
-        #BEGIN run_kb_RepeatMasker
-        report = KBaseReport(self.callback_url)
-        report_info = report.create({'report': {'objects_created':[],
-                                                'text_message': params['parameter_1']},
-                                                'workspace_name': params['workspace_name']})
-        output = {
-            'report_name': report_info['name'],
-            'report_ref': report_info['ref'],
-        }
-        #END run_kb_RepeatMasker
+        #BEGIN run_repeatmasker
+        output = RepeatMaskerRunner(self.config, self.callback_url, ctx).run(params)
+        #END run_repeatmasker
 
         # At some point might do deeper type checking...
         if not isinstance(output, dict):
-            raise ValueError('Method run_kb_RepeatMasker return value ' +
+            raise ValueError('Method run_repeatmasker return value ' +
                              'output is not type dict as required.')
         # return the results
         return [output]

@@ -1,6 +1,6 @@
-# kb_RepeatMasker release notes
+# kb_repeatmasker release notes
 =========================================
 
-0.1.0
+0.0.0
 -----
 * Module created by kb-sdk init

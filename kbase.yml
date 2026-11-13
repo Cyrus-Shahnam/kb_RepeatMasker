@@ -1,15 +1,24 @@
+#
+# define display information
+#
+name: RepeatMasker
+
 module-name:
-    kb_RepeatMasker
+    kb_repeatmasker
 
 module-description:
-    A KBase module
+    Masks interspersed repeats and low-complexity DNA in Assemblies with RepeatMasker 4.2.4 and the Dfam 4.0 curated library (served as reference data), or with a custom repeat library.
 
 service-language:
     python
 
 module-version:
-    0.0.1
+    0.1.0
 
 owners:
     [ac.shahnam]
 
+service-config:
+    dynamic-service: false
+
+data-version: 0.1

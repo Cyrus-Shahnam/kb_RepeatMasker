@@ -1,50 +1,62 @@
-FROM python:3.12-trixie
-LABEL maintainer="KBase Developer"
-# -----------------------------------------
-# Set up SDK requirements
+FROM kbase/sdkpython:3.8.10
+LABEL maintainer="ac.shahnam"
+USER root
 
-# In this section, we install code required for the SDK to run.
+# -----------------------------------------------------------------------------
+# Layer 1 (slow, rarely changes): micromamba, with a fallback mirror.
+# RUN curl rather than ADD: buildkit's ADD may not honour the build proxy.
+# -----------------------------------------------------------------------------
+RUN ( curl -fsSL https://micro.mamba.pm/api/micromamba/linux-64/latest \
+        | tar -xvj -C /usr/local bin/micromamba ) \
+    || ( curl -fsSL https://github.com/mamba-org/micromamba-releases/releases/latest/download/micromamba-linux-64.tar.bz2 \
+        | tar -xvj -C /usr/local bin/micromamba ) \
+ && /usr/local/bin/micromamba --version
 
-# Don't spam the KBase Catalog logs
-ENV PIP_PROGRESS_BAR=off
+# -----------------------------------------------------------------------------
+# Layer 2 (slow): isolated RepeatMasker env. NOT on the image PATH - it would
+# shadow the KBase server's Python. The Runner injects it per subprocess.
+# -----------------------------------------------------------------------------
+COPY env-repeatmasker.yml /tmp/env-repeatmasker.yml
+RUN /usr/local/bin/micromamba create -y -r /opt/conda -n repeatmasker -f /tmp/env-repeatmasker.yml \
+ && MAMBA_ROOT_PREFIX=/opt/conda /usr/local/bin/micromamba clean -a -y
 
-# Install general binaries
-RUN apt update && apt install -y wget
+# -----------------------------------------------------------------------------
+# Layer 3: point FamDB at the KBase reference data directory (/data/famdb).
+# famdb.py reads FAMDB_DATA_DIR from famdb.conf in its install dir, otherwise
+# Libraries/famdb beside famdb.py - set both so either lookup lands on /data.
+# -----------------------------------------------------------------------------
+RUN set -e; \
+    FAMDB_SHARE=$(ls -d /opt/conda/envs/repeatmasker/share/famdb-* | head -1); \
+    test -x "$FAMDB_SHARE/famdb.py"; \
+    rm -rf "$FAMDB_SHARE/Libraries/famdb"; \
+    mkdir -p "$FAMDB_SHARE/Libraries"; \
+    ln -s /data/famdb "$FAMDB_SHARE/Libraries/famdb"; \
+    printf '[famdb]\nFAMDB_DATA_DIR = /data/famdb\n' > "$FAMDB_SHARE/famdb.conf"; \
+    echo "FamDB wired to /data/famdb in $FAMDB_SHARE"
 
-# Install the SDK binary. This is required for spec compilation and catalog registration.
-ENV SDK_VER=0.1.0-alpha6
-ENV SDK_SHA=c5447cfd5150633f8e23befb4c3a555f12d91f5c7cc75a0a4f7c5afa65fd300b
-RUN mkdir -p /sdk/bin \
-    && wget -q -O /sdk/bin/kb-sdk https://github.com/kbase/kb_sdk_plus/releases/download/$SDK_VER/kb-sdk-linux-x64 \
-    && echo "$SDK_SHA /sdk/bin/kb-sdk" | sha256sum --check \
-    && chmod a+x /sdk/bin/kb-sdk
-ENV PATH=/sdk/bin:$PATH
+# -----------------------------------------------------------------------------
+# Layer 4: build-time check with the RUNTIME PATH (scoped to this RUN only).
+# Every helper RepeatMasker calls by bare name must resolve.
+# -----------------------------------------------------------------------------
+RUN export PATH=/opt/conda/envs/repeatmasker/bin:$PATH \
+ && RepeatMasker -v \
+ && for t in RepeatMasker ProcessRepeats famdb.py rmblastn makeblastdb trf nhmmer perl python3 curl md5sum gunzip; do \
+        command -v "$t" >/dev/null || { echo "MISSING helper: $t"; exit 1; }; done \
+ && python3 -c "import h5py; print('h5py', h5py.__version__)" \
+ && famdb.py -h | head -3 \
+ && echo REPEATMASKER_ENV_OK
 
+# -----------------------------------------------------------------------------
+# Layer 5: KBase server-side Python deps (new layer AFTER the conda env so
+# editing it never forces a conda re-solve).
+# -----------------------------------------------------------------------------
+RUN pip install --no-cache-dir jsonrpcbase pytest pytest-cov coverage
+RUN python -c "import sys; print('server python:', sys.executable)" \
+ && python -c "import pytest, jsonrpcbase; print('server deps OK')"
 
-# Install python libraries required by the SDK code.
-# You may wish to use a dependency manager like pipenv or uv to install
-# these as well as your own dependencies.
-# Note uwsgi can be removed if this module is not a dynamic service, which is usually the case
-RUN pip install \
-    requests==2.32.5 \
-    kbase-auth-client==0.1.1 \
-    kbase-sdk-baseclient==0.1.0 \
-    jsonrpcbase==0.2.0 \
-    uwsgi==2.0.30 \
-    pytest==8.4.2 \
-    pytest-cov==6.2.1
-
-# -----------------------------------------
-# In this section, you can install any system dependencies required
-# to run your App.  For instance, you could place an apt-get update or
-# install line here, a git checkout to download code, or run any other
-# installation scripts.
-
-# RUN apt-get update
-
-
-# -----------------------------------------
-
+# -----------------------------------------------------------------------------
+# Volatile layers: module code.
+# -----------------------------------------------------------------------------
 COPY ./ /kb/module
 RUN mkdir -p /kb/module/work
 RUN chmod -R a+rw /kb/module

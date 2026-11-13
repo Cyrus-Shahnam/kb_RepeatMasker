@@ -1,6 +1,6 @@
 SERVICE = kb_repeatmasker
-SERVICE_CAPS = kb_RepeatMasker
-SPEC_FILE = kb_RepeatMasker.spec
+SERVICE_CAPS = kb_repeatmasker
+SPEC_FILE = kb_repeatmasker.spec
 URL = https://kbase.us/services/kb_repeatmasker
 DIR = $(shell pwd)
 LIB_DIR = lib
@@ -12,8 +12,6 @@ EXECUTABLE_SCRIPT_NAME = run_$(SERVICE_CAPS)_async_job.sh
 STARTUP_SCRIPT_NAME = start_server.sh
 TEST_SCRIPT_NAME = run_tests.sh
 
-TEST_SPEC = .
-
 .PHONY: test
 
 default: compile
@@ -21,9 +19,8 @@ default: compile
 all: compile build build-startup-script build-executable-script build-test-script
 
 compile:
-	kb-sdk compile -v $(SPEC_FILE) \
+	kb-sdk compile $(SPEC_FILE) \
 		--out $(LIB_DIR) \
-		--pyclname $(SERVICE_CAPS).$(SERVICE_CAPS)Client \
 		--pysrvname $(SERVICE_CAPS).$(SERVICE_CAPS)Server \
 		--pyimplname $(SERVICE_CAPS).$(SERVICE_CAPS)Impl;
 
@@ -57,7 +54,7 @@ build-test-script:
 	echo 'echo "...done removing temp files."' >> $(TEST_DIR)/$(TEST_SCRIPT_NAME)
 	echo 'export PYTHONPATH=$$script_dir/../$(LIB_DIR):$$PATH:$$PYTHONPATH' >> $(TEST_DIR)/$(TEST_SCRIPT_NAME)
 	echo 'cd $$script_dir/../$(TEST_DIR)' >> $(TEST_DIR)/$(TEST_SCRIPT_NAME)
-	echo 'pytest  -vv --cov=$(SERVICE_CAPS) --cov-report=html:/kb/module/work/test_coverage --cov-report=xml:/kb/module/work/coverage.xml $(TEST_SPEC)' >> $(TEST_DIR)/$(TEST_SCRIPT_NAME)
+	echo 'python -m nose --with-coverage --cover-package=$(SERVICE_CAPS) --cover-html --cover-html-dir=/kb/module/work/test_coverage --nocapture  --nologcapture .' >> $(TEST_DIR)/$(TEST_SCRIPT_NAME)
 	chmod +x $(TEST_DIR)/$(TEST_SCRIPT_NAME)
 
 test:

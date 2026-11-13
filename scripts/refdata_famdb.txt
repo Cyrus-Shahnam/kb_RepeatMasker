@@ -1,0 +1,20 @@
+# Dfam FamDB files installed as KBase reference data (/data/famdb).
+# Read by scripts/download_dfam_data.sh during `entrypoint.sh init`.
+#
+# Pin the release directory (not ".../current/") so a new Dfam release can never
+# change the data under a registered module version. All files must come from
+# the SAME release. After editing this list, bump data-version in kbase.yml and
+# re-register the module.
+BASE_URL https://www.dfam.org/releases/Dfam_4.0/families/FamDB/
+
+# Root partition: taxonomy + index (required).
+dfam40.0.h5.gz
+
+# Curated consensus sequences (all curated Dfam families fit in one partition).
+# This is what RepeatMasker uses with the default RMBlast engine.
+dfam40.curated.consensus.0.h5.gz
+
+# Optional: uncurated consensus partitions (used with "Include uncurated families").
+# They are large. Run `famdb.py -i /data/famdb check --component uc "<taxon>"`
+# to see exactly which partition file a taxon needs, then add it here, e.g.:
+# dfam40.uncurated.consensus.1.h5.gz
